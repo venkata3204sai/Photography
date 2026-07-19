@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Yashwant Sharma — Photography</title>
+<title>Chandra Venkata Sai Sarika — Photography</title>
 <style>
   :root{
     --bg:#050506;
@@ -41,6 +41,21 @@
     border:1px solid rgba(255,255,255,.06);
     transition:border-color .4s;
     position:relative;
+    overflow:hidden;
+  }
+  /* light sweep when a photo arrives in focus */
+  .photo .frame::after{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg,transparent 42%,rgba(255,246,225,.16) 50%,transparent 58%);
+    transform:translateX(-140%) skewX(-6deg);
+  }
+  .photo.lit .frame::after{animation:sheen 1.5s .15s cubic-bezier(.4,0,.3,1) forwards}
+  @keyframes sheen{to{transform:translateX(140%) skewX(-6deg)}}
+  /* drifting dust motes */
+  .dust{
+    position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,rgba(255,218,150,.85),rgba(255,218,150,0) 70%);
+    will-change:transform,opacity;
   }
   .photo:hover .frame{border-color:rgba(212,162,83,.45)}
   .photo img,.photo canvas{
@@ -117,7 +132,32 @@
     opacity:0;animation:rise 1.4s 1.7s forwards;
     transition:background .4s,border-color .4s,color .4s}
   #title .enter:hover{background:var(--accent);border-color:var(--accent);color:#0a0805}
+  #title .tlinks{display:flex;gap:18px;align-items:center;margin-top:10px;
+    font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);
+    opacity:0;animation:rise 1.4s 2.1s forwards}
+  #title .tlinks a{color:var(--dim);text-decoration:none;transition:color .3s}
+  #title .tlinks a:hover{color:var(--accent)}
   @keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+
+  /* ---------- END CARD (3D contact panel) ---------- */
+  .endcard .card{
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(10,10,13,.72);
+    padding:64px 80px;text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,.75);
+  }
+  .endcard .fin{font-size:11px;letter-spacing:.6em;color:var(--accent);
+    text-transform:uppercase;text-indent:.6em;margin-bottom:22px}
+  .endcard h2{font-size:clamp(18px,2.6vw,30px);font-weight:200;letter-spacing:.32em;
+    text-transform:uppercase;text-indent:.32em;margin-bottom:34px;white-space:nowrap}
+  .endcard .links{display:flex;flex-direction:column;gap:16px;
+    font-size:12px;letter-spacing:.25em}
+  .endcard .links a{color:var(--dim);text-decoration:none;transition:color .3s}
+  .endcard .links a:hover{color:var(--accent)}
+  @media (max-width:700px){
+    .endcard .card{padding:40px 30px}
+    .endcard h2{white-space:normal}
+  }
 
   /* ---------- HUD ---------- */
   .hud{position:fixed;z-index:45;font-size:10px;letter-spacing:.35em;
@@ -156,6 +196,7 @@
     .photo img,.photo canvas,.photo .reflect img,.photo .reflect canvas{height:38vh}
     #hudHint{display:none}
     #stage{perspective:800px}
+    #hudName{max-width:55vw;line-height:2;font-size:9px}
   }
 </style>
 </head>
@@ -169,7 +210,7 @@
 <div id="barTop" class="bar"></div>
 <div id="barBot" class="bar"></div>
 
-<div id="hudName" class="hud">Yashwant Sharma</div>
+<div id="hudName" class="hud">Chandra Venkata Sai Sarika</div>
 <div id="hudCounter" class="hud"><b id="curNum">01</b> / <span id="totNum">00</span></div>
 <div id="hudHint" class="hud">Scroll · Drag · Arrow Keys</div>
 <button id="hudPlay" class="hud">▶ Cinematic</button>
@@ -177,9 +218,13 @@
 
 <div id="title">
   <div class="kicker">A Visual Journal</div>
-  <h1>Yashwant Sharma</h1>
+  <h1>Chandra Venkata Sai Sarika</h1>
   <div class="sub">Selected Photographs</div>
   <button class="enter" id="enterBtn">Enter Gallery</button>
+  <div class="tlinks">
+    <a id="tMail" href="#">Email</a><span>·</span>
+    <a id="tInsta" href="#" target="_blank" rel="noopener">Instagram</a>
+  </div>
 </div>
 
 <div id="lightbox"><img id="lbImg" alt=""><div id="lbCap"></div></div>
@@ -188,11 +233,25 @@
 <script src="photos.js"></script>
 <script>
 (() => {
+  // ---- your contact details (edit here) ----
+  const CONTACT = {
+    email: 'venkatasai3204@gmail.com',
+    instagram: 'venkatasai3204'          // <- Instagram username, without the @
+  };
+
   const world = document.getElementById('world');
   const SPACING = 950;            // z distance between photos
+
+  // winding camera path: photos sit on an S-curve, camera follows it
+  const CURVE_A = 320;
+  const CURVE_F = (Math.PI * 2) / (SPACING * 4);
+  const curveAt = z => CURVE_A * Math.sin(z * CURVE_F);
+
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const list = (window.PHOTOS && window.PHOTOS.length) ? window.PHOTOS.slice() : null;
 
   let photos = [];                // {el, z, x, y, ry}
+  let photoCount = 0;             // real photos only (end card excluded)
   let camZ = 0, camTarget = 0, maxZ = 0;
   let mouseX = 0, mouseY = 0, parX = 0, parY = 0;
   let auto = false;
@@ -227,19 +286,21 @@
     return c;
   }
 
-  function buildPhoto(i, srcOrCanvas, caption, total){
+  // item is either a canvas (placeholder) or {s: sceneSrc, f: fullResSrc}
+  function buildPhoto(i, item, caption, total){
     const el = document.createElement('div');
     el.className = 'photo';
     const frame = document.createElement('div');
     frame.className = 'frame';
 
+    const isImg = !(item instanceof HTMLCanvasElement);
     let media;
-    if (typeof srcOrCanvas === 'string'){
+    if (isImg){
       media = new Image();
-      media.src = srcOrCanvas;
+      media.src = item.s;
       media.alt = caption;
       media.draggable = false;
-    } else media = srcOrCanvas;
+    } else media = item;
     frame.appendChild(media);
 
     const cap = document.createElement('div');
@@ -248,10 +309,10 @@
     frame.appendChild(cap);
 
     // reflection (only for real images)
-    if (typeof srcOrCanvas === 'string'){
+    if (isImg){
       const refl = document.createElement('div');
       refl.className = 'reflect';
-      const rimg = new Image(); rimg.src = srcOrCanvas; rimg.draggable = false;
+      const rimg = new Image(); rimg.src = item.s; rimg.draggable = false;
       refl.appendChild(rimg);
       el.appendChild(refl);
       // keep reflection width in sync once loaded
@@ -260,7 +321,7 @@
     el.appendChild(frame);
 
     const side = i % 2 === 0 ? -1 : 1;
-    const x = side * (120 + rnd(i) * 200);
+    const x = side * (70 + rnd(i) * 130);   // curve already adds lateral variety
     const y = (rnd(i + 50) - .5) * 120;
     const ry = side * -(6 + rnd(i + 99) * 10);
     const z = -i * SPACING - 600;
@@ -268,19 +329,69 @@
     el.addEventListener('click', () => {
       const dist = Math.abs(z + camZ + 600);
       if (dist > SPACING * .6){ camTarget = -z - 600; return; }   // far → fly to it
-      if (typeof srcOrCanvas === 'string') openLightbox(srcOrCanvas, caption, i, total);
+      if (isImg) openLightbox(item, caption);
     });
 
     world.appendChild(el);
-    photos.push({el, z, x, y, ry, src: srcOrCanvas, caption});
+    const rec = {el, z, x, y, ry, item, caption, tX:0, tY:0, tTX:0, tTY:0, lit:false};
+
+    // cursor tilt on the focused photo
+    el.addEventListener('mousemove', e => {
+      const r = frame.getBoundingClientRect();
+      if (!r.width) return;
+      rec.tTX = ((e.clientY - r.top) / r.height - .5) * -8;
+      rec.tTY = ((e.clientX - r.left) / r.width - .5) * 10;
+    });
+    el.addEventListener('mouseleave', () => { rec.tTX = 0; rec.tTY = 0; });
+
+    photos.push(rec);
+  }
+
+  function buildEndCard(total){
+    const el = document.createElement('div');
+    el.className = 'photo endcard';
+    el.innerHTML =
+      `<div class="card">
+         <div class="fin">Fin</div>
+         <h2>Thank you for looking</h2>
+         <div class="links">
+           <a href="mailto:${CONTACT.email}">${CONTACT.email}</a>
+           <a href="https://instagram.com/${CONTACT.instagram}" target="_blank" rel="noopener">@${CONTACT.instagram} on Instagram</a>
+         </div>
+       </div>`;
+    world.appendChild(el);
+    photos.push({el, z: -total * SPACING - 600, x: 0, y: 0, ry: 0,
+                 tX:0, tY:0, tTX:0, tTY:0, lit:true});
+  }
+
+  /* ---------- DUST ---------- */
+  const dust = [];
+  const DUST_RANGE = 6000;
+  function makeDust(){
+    if (reduceMotion) return;
+    for (let i = 0; i < 45; i++){
+      const d = document.createElement('div');
+      d.className = 'dust';
+      const size = 2 + rnd(i + 7) * 4;
+      d.style.width = d.style.height = size + 'px';
+      world.appendChild(d);
+      dust.push({el: d,
+        x: (rnd(i) - .5) * 1500, y: (rnd(i + 31) - .5) * 900,
+        z: rnd(i + 13) * DUST_RANGE,
+        s: .25 + rnd(i + 3) * .6, p: rnd(i + 77) * 6.28});
+    }
   }
 
   function buildScene(sources){
-    world.innerHTML = ''; photos = [];
-    const items = sources || Array.from({length: 8}, (_,i)=>placeholderCanvas(i));
+    world.innerHTML = ''; photos = []; dust.length = 0;
+    const items = (sources || Array.from({length: 8}, (_,i)=>placeholderCanvas(i)))
+      .map(s => typeof s === 'string' ? {s: s, f: s} : s);
     const total = items.length;
-    items.forEach((s,i)=> buildPhoto(i, s, typeof s==='string' ? captionFrom(s) : 'awaiting photograph', total));
-    maxZ = (total - 1) * SPACING + 600;
+    photoCount = total;
+    items.forEach((s,i)=> buildPhoto(i, s, s instanceof HTMLCanvasElement ? 'awaiting photograph' : captionFrom(s.f), total));
+    buildEndCard(total);
+    makeDust();
+    maxZ = total * SPACING;
     document.getElementById('totNum').textContent = String(total).padStart(2,'0');
     camZ = Math.min(camZ, maxZ); camTarget = Math.min(camTarget, maxZ);
   }
@@ -293,8 +404,12 @@
     parX += (mouseX - parX) * 0.05;
     parY += (mouseY - parY) * 0.05;
 
+    const t = performance.now() / 1000;
+    const camX = curveAt(camZ);
+    // bank + roll into the curve like a steadicam
+    const bank = (curveAt(camZ + 80) - camX) * 0.055;
     world.style.transform =
-      `rotateX(${ -parY * 2 }deg) rotateY(${ parX * 3 }deg)`;
+      `rotateX(${ -parY * 2 }deg) rotateY(${ parX * 3 + bank }deg) rotateZ(${ -bank * 0.4 }deg)`;
 
     for (const p of photos){
       const rel = p.z + camZ + 600;              // 0 when photo is at focal plane
@@ -302,15 +417,41 @@
       const blur = Math.min(14, Math.max(0, (dist - 350) / 130));
       const op   = rel > 900 ? Math.max(0, 1 - (rel - 900) / 500)
                              : Math.max(0, 1 - Math.max(0, dist - 300) / 2600);
+
+      const zi = -p.z - 600;                     // position along the path
+      const px = p.x + curveAt(zi) - camX;       // follow the S-curve
+      const fy = reduceMotion ? p.y : p.y + Math.sin(t * .55 + zi) * 8;   // gentle float
+      const face = Math.min(1, dist / 700);      // rotate to face camera on approach
+      p.tX += (p.tTX - p.tX) * 0.1;              // cursor tilt easing
+      p.tY += (p.tTY - p.tY) * 0.1;
+
       p.el.style.transform =
-        `translate(-50%,-50%) translate3d(${p.x}px, ${p.y}px, ${p.z + camZ}px) rotateY(${p.ry}deg)`;
+        `translate(-50%,-50%) translate3d(${px}px, ${fy}px, ${p.z + camZ}px)` +
+        ` rotateY(${p.ry * face + p.tY}deg) rotateX(${p.tX}deg)`;
       p.el.style.filter = blur > .4 ? `blur(${blur}px)` : 'none';
       p.el.style.opacity = op.toFixed(3);
       p.el.style.pointerEvents = op < .05 ? 'none' : 'auto';
       p.el.style.zIndex = Math.round(10000 + rel * -0.01);
+
+      // fire the light sweep as the photo lands in focus
+      if (dist < 340 && !p.lit){ p.lit = true; p.el.classList.add('lit'); }
+      else if (dist > 1100 && p.lit && !p.el.classList.contains('endcard')){
+        p.lit = false; p.el.classList.remove('lit');
+      }
     }
 
-    const idx = Math.min(photos.length, Math.max(1, Math.round(camZ / SPACING) + 1));
+    for (const d of dust){
+      let zi = (d.z + camZ * .9) % DUST_RANGE; if (zi < 0) zi += DUST_RANGE;
+      const dz = zi - DUST_RANGE + 700;          // cycle motes around the camera
+      const op = Math.max(0, Math.min(.65, (dz + 4600) / 2600)) *
+                 Math.max(0, Math.min(1, (450 - dz) / 250));
+      d.el.style.transform =
+        `translate(-50%,-50%) translate3d(${d.x + Math.sin(t * d.s + d.p) * 45 - camX * .25}px,` +
+        ` ${d.y + Math.cos(t * d.s * .8 + d.p) * 35}px, ${dz}px)`;
+      d.el.style.opacity = op.toFixed(2);
+    }
+
+    const idx = Math.min(photoCount, Math.max(1, Math.round(camZ / SPACING) + 1));
     document.getElementById('curNum').textContent = String(idx).padStart(2,'0');
     document.getElementById('progress').style.width =
       Math.min(100, Math.max(0, camZ / (maxZ || 1) * 100)) + '%';
@@ -349,10 +490,16 @@
 
   /* ---------- LIGHTBOX ---------- */
   const lb = document.getElementById('lightbox');
-  function openLightbox(src, cap){
+  function openLightbox(item, cap){
     const img = document.getElementById('lbImg');
-    img.src = src; img.style.animation = 'none'; void img.offsetWidth;
+    // show the preview instantly, then swap in the untouched full-res file
+    img.src = item.s; img.style.animation = 'none'; void img.offsetWidth;
     img.style.animation = '';
+    if (item.f !== item.s){
+      const hi = new Image();
+      hi.onload = () => { if (lb.classList.contains('open')) img.src = item.f; };
+      hi.src = item.f;
+    }
     document.getElementById('lbCap').textContent = cap;
     lb.classList.add('open');
   }
@@ -384,9 +531,12 @@
   };
 
   /* ---------- TITLE / START ---------- */
+  document.getElementById('tMail').href  = 'mailto:' + CONTACT.email;
+  document.getElementById('tInsta').href = 'https://instagram.com/' + CONTACT.instagram;
   document.getElementById('enterBtn').addEventListener('click', () => {
     document.getElementById('title').classList.add('gone');
     setTimeout(() => document.body.classList.add('lights-up'), 500);
+    camZ = reduceMotion ? -300 : -2400;   // long fly-in through the dust
     camTarget = 0;
   });
 
