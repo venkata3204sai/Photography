@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yashwant Sharma — Photography</title>
+<style>
+  :root{
+    --bg:#050506;
+    --ink:#e8e4dc;
+    --dim:#8a857c;
+    --accent:#d4a253;
+    --frame:#111114;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+  /* ---------- 3D STAGE ---------- */
+  #stage{
+    position:fixed;inset:0;
+    perspective:1100px;
+    perspective-origin:50% 50%;
+    overflow:hidden;
+  }
+  #world{
+    position:absolute;inset:0;
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+  .photo{
+    position:absolute;left:50%;top:50%;
+    transform-style:preserve-3d;
+    will-change:transform,filter,opacity;
+    cursor:pointer;
+  }
+  .photo .frame{
+    background:var(--frame);
+    padding:14px 14px 40px;
+    box-shadow:0 30px 80px rgba(0,0,0,.75), 0 4px 18px rgba(0,0,0,.6);
+    border:1px solid rgba(255,255,255,.06);
+    transition:border-color .4s;
+    position:relative;
+  }
+  .photo:hover .frame{border-color:rgba(212,162,83,.45)}
+  .photo img,.photo canvas{
+    display:block;
+    max-width:none;
+    height:52vh;width:auto;
+    max-height:560px;
+    object-fit:cover;
+    background:#0a0a0c;
+  }
+  .photo .caption{
+    position:absolute;left:16px;bottom:11px;right:16px;
+    font-size:11px;letter-spacing:.28em;text-transform:uppercase;
+    color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    display:flex;justify-content:space-between;gap:12px;
+  }
+  .photo .caption .num{color:var(--accent);letter-spacing:.1em}
+  /* floor reflection */
+  .photo .reflect{
+    position:absolute;left:0;right:0;top:100%;height:45%;
+    transform:scaleY(-1);
+    overflow:hidden;pointer-events:none;
+    opacity:.14;
+    -webkit-mask-image:linear-gradient(to top,rgba(0,0,0,.7),transparent 75%);
+            mask-image:linear-gradient(to top,rgba(0,0,0,.7),transparent 75%);
+    filter:blur(2px);
+  }
+  .photo .reflect img,.photo .reflect canvas{height:52vh;max-height:560px}
+
+  /* ---------- CINEMATIC OVERLAYS ---------- */
+  .bar{position:fixed;left:0;right:0;height:7vh;background:#000;z-index:40;
+    transition:transform 1.4s cubic-bezier(.7,0,.2,1)}
+  #barTop{top:0;transform-origin:top}
+  #barBot{bottom:0;transform-origin:bottom}
+  body.lights-up #barTop{transform:translateY(-100%)}
+  body.lights-up #barBot{transform:translateY(100%)}
+
+  #vignette{position:fixed;inset:0;z-index:30;pointer-events:none;
+    background:radial-gradient(ellipse 75% 65% at 50% 48%,transparent 55%,rgba(0,0,0,.55)95%);}
+  #grain{position:fixed;inset:-100px;z-index:31;pointer-events:none;opacity:.055;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation:grain .9s steps(4) infinite;}
+  @keyframes grain{
+    0%{transform:translate(0,0)}25%{transform:translate(-40px,30px)}
+    50%{transform:translate(30px,-45px)}75%{transform:translate(-25px,-20px)}
+    100%{transform:translate(0,0)}
+  }
+  /* light haze beams */
+  #haze{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.5;
+    background:
+      radial-gradient(ellipse 40% 60% at 22% 0%,rgba(212,162,83,.05),transparent 60%),
+      radial-gradient(ellipse 50% 70% at 78% 100%,rgba(90,110,160,.06),transparent 60%);}
+
+  /* ---------- TITLE SEQUENCE ---------- */
+  #title{
+    position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;
+    background:var(--bg);
+    transition:opacity 1.6s ease, visibility 1.6s;
+  }
+  #title.gone{opacity:0;visibility:hidden;pointer-events:none}
+  #title .kicker{font-size:11px;letter-spacing:.6em;color:var(--accent);text-transform:uppercase;
+    opacity:0;animation:rise 1.4s .3s forwards}
+  #title h1{
+    font-size:clamp(28px,5.5vw,64px);font-weight:200;letter-spacing:.34em;
+    text-transform:uppercase;text-align:center;text-indent:.34em;
+    opacity:0;animation:rise 1.6s .7s forwards}
+  #title .sub{font-size:12px;letter-spacing:.4em;color:var(--dim);text-transform:uppercase;
+    opacity:0;animation:rise 1.4s 1.2s forwards}
+  #title .enter{
+    margin-top:26px;padding:13px 44px;border:1px solid rgba(232,228,220,.25);
+    background:transparent;color:var(--ink);font-size:11px;letter-spacing:.45em;
+    text-transform:uppercase;cursor:pointer;text-indent:.45em;
+    opacity:0;animation:rise 1.4s 1.7s forwards;
+    transition:background .4s,border-color .4s,color .4s}
+  #title .enter:hover{background:var(--accent);border-color:var(--accent);color:#0a0805}
+  @keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+
+  /* ---------- HUD ---------- */
+  .hud{position:fixed;z-index:45;font-size:10px;letter-spacing:.35em;
+    text-transform:uppercase;color:var(--dim);opacity:0;transition:opacity 1s 1s}
+  body.lights-up .hud{opacity:1}
+  #hudName{top:calc(7vh + 22px);left:34px;color:var(--ink)}
+  #hudCounter{top:calc(7vh + 22px);right:34px;font-variant-numeric:tabular-nums}
+  #hudCounter b{color:var(--accent);font-weight:400}
+  #hudHint{bottom:calc(7vh + 22px);left:34px}
+  #hudPlay{bottom:calc(7vh + 20px);right:34px;background:none;border:1px solid rgba(232,228,220,.2);
+    color:var(--dim);padding:8px 18px;cursor:pointer;font-size:10px;letter-spacing:.35em;
+    text-transform:uppercase;text-indent:.35em;transition:all .3s;pointer-events:auto}
+  #hudPlay:hover,#hudPlay.on{color:var(--accent);border-color:rgba(212,162,83,.5)}
+  #progress{position:fixed;bottom:0;left:0;height:2px;background:var(--accent);
+    z-index:46;width:0;transition:width .2s linear}
+
+  /* ---------- LIGHTBOX ---------- */
+  #lightbox{position:fixed;inset:0;z-index:60;background:rgba(3,3,4,.96);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;visibility:hidden;transition:opacity .5s,visibility .5s;cursor:zoom-out}
+  #lightbox.open{opacity:1;visibility:visible}
+  #lightbox img{max-width:88vw;max-height:82vh;object-fit:contain;
+    box-shadow:0 40px 120px rgba(0,0,0,.9);
+    animation:kenburns 14s ease-out forwards}
+  @keyframes kenburns{from{transform:scale(1)}to{transform:scale(1.06)}}
+  #lbCap{position:absolute;bottom:5vh;left:50%;transform:translateX(-50%);
+    font-size:11px;letter-spacing:.4em;text-transform:uppercase;color:var(--dim)}
+
+  /* ---------- DROP ZONE ---------- */
+  #drop{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;
+    background:rgba(5,5,6,.88);border:2px dashed rgba(212,162,83,.5);
+    font-size:13px;letter-spacing:.4em;text-transform:uppercase;color:var(--accent)}
+  body.dragging #drop{display:flex}
+
+  @media (max-width:700px){
+    .photo img,.photo canvas,.photo .reflect img,.photo .reflect canvas{height:38vh}
+    #hudHint{display:none}
+    #stage{perspective:800px}
+  }
+</style>
+</head>
+<body>
+
+<div id="stage"><div id="world"></div></div>
+
+<div id="haze"></div>
+<div id="vignette"></div>
+<div id="grain"></div>
+<div id="barTop" class="bar"></div>
+<div id="barBot" class="bar"></div>
+
+<div id="hudName" class="hud">Yashwant Sharma</div>
+<div id="hudCounter" class="hud"><b id="curNum">01</b> / <span id="totNum">00</span></div>
+<div id="hudHint" class="hud">Scroll · Drag · Arrow Keys</div>
+<button id="hudPlay" class="hud">▶ Cinematic</button>
+<div id="progress"></div>
+
+<div id="title">
+  <div class="kicker">A Visual Journal</div>
+  <h1>Yashwant Sharma</h1>
+  <div class="sub">Selected Photographs</div>
+  <button class="enter" id="enterBtn">Enter Gallery</button>
+</div>
+
+<div id="lightbox"><img id="lbImg" alt=""><div id="lbCap"></div></div>
+<div id="drop">Release to add photographs</div>
+
+<script src="photos.js"></script>
+<script>
+(() => {
+  const world = document.getElementById('world');
+  const SPACING = 950;            // z distance between photos
+  const list = (window.PHOTOS && window.PHOTOS.length) ? window.PHOTOS.slice() : null;
+
+  let photos = [];                // {el, z, x, y, ry}
+  let camZ = 0, camTarget = 0, maxZ = 0;
+  let mouseX = 0, mouseY = 0, parX = 0, parY = 0;
+  let auto = false;
+
+  // deterministic pseudo-random so layout is stable per index
+  const rnd = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+
+  function captionFrom(src){
+    const base = src.split('/').pop().split('.').slice(0,-1).join('.') || 'untitled';
+    return base.replace(/[-_]+/g,' ').trim();
+  }
+
+  function placeholderCanvas(i){
+    const c = document.createElement('canvas');
+    c.width = 720; c.height = 480;
+    const g = c.getContext('2d');
+    const hues = [[28,60,18],[210,30,16],[350,35,15],[160,25,14],[45,55,20],[275,25,16]];
+    const [h,s,l] = hues[i % hues.length];
+    const grad = g.createLinearGradient(0,0,720,480);
+    grad.addColorStop(0,`hsl(${h} ${s}% ${l}%)`);
+    grad.addColorStop(1,`hsl(${(h+40)%360} ${s}% ${Math.max(l-8,4)}%)`);
+    g.fillStyle = grad; g.fillRect(0,0,720,480);
+    g.strokeStyle = 'rgba(255,255,255,.12)'; g.lineWidth = 1;
+    g.strokeRect(30,30,660,420);
+    g.fillStyle = 'rgba(232,228,220,.55)';
+    g.font = '300 26px Segoe UI, sans-serif';
+    g.textAlign = 'center';
+    g.fillText('Your photograph here', 360, 230);
+    g.font = '300 15px Segoe UI, sans-serif';
+    g.fillStyle = 'rgba(232,228,220,.3)';
+    g.fillText('drop images anywhere, or add files to the photos folder', 360, 262);
+    return c;
+  }
+
+  function buildPhoto(i, srcOrCanvas, caption, total){
+    const el = document.createElement('div');
+    el.className = 'photo';
+    const frame = document.createElement('div');
+    frame.className = 'frame';
+
+    let media;
+    if (typeof srcOrCanvas === 'string'){
+      media = new Image();
+      media.src = srcOrCanvas;
+      media.alt = caption;
+      media.draggable = false;
+    } else media = srcOrCanvas;
+    frame.appendChild(media);
+
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.innerHTML = `<span>${caption}</span><span class="num">${String(i+1).padStart(2,'0')}</span>`;
+    frame.appendChild(cap);
+
+    // reflection (only for real images)
+    if (typeof srcOrCanvas === 'string'){
+      const refl = document.createElement('div');
+      refl.className = 'reflect';
+      const rimg = new Image(); rimg.src = srcOrCanvas; rimg.draggable = false;
+      refl.appendChild(rimg);
+      el.appendChild(refl);
+      // keep reflection width in sync once loaded
+      media.addEventListener('load', () => { rimg.style.width = media.clientWidth + 'px'; });
+    }
+    el.appendChild(frame);
+
+    const side = i % 2 === 0 ? -1 : 1;
+    const x = side * (120 + rnd(i) * 200);
+    const y = (rnd(i + 50) - .5) * 120;
+    const ry = side * -(6 + rnd(i + 99) * 10);
+    const z = -i * SPACING - 600;
+
+    el.addEventListener('click', () => {
+      const dist = Math.abs(z + camZ + 600);
+      if (dist > SPACING * .6){ camTarget = -z - 600; return; }   // far → fly to it
+      if (typeof srcOrCanvas === 'string') openLightbox(srcOrCanvas, caption, i, total);
+    });
+
+    world.appendChild(el);
+    photos.push({el, z, x, y, ry, src: srcOrCanvas, caption});
+  }
+
+  function buildScene(sources){
+    world.innerHTML = ''; photos = [];
+    const items = sources || Array.from({length: 8}, (_,i)=>placeholderCanvas(i));
+    const total = items.length;
+    items.forEach((s,i)=> buildPhoto(i, s, typeof s==='string' ? captionFrom(s) : 'awaiting photograph', total));
+    maxZ = (total - 1) * SPACING + 600;
+    document.getElementById('totNum').textContent = String(total).padStart(2,'0');
+    camZ = Math.min(camZ, maxZ); camTarget = Math.min(camTarget, maxZ);
+  }
+
+  /* ---------- RENDER LOOP ---------- */
+  function frame(){
+    if (auto) camTarget = Math.min(camTarget + 3.2, maxZ + 400);
+    camTarget = Math.max(-300, Math.min(camTarget, maxZ + 400));
+    camZ += (camTarget - camZ) * 0.06;
+    parX += (mouseX - parX) * 0.05;
+    parY += (mouseY - parY) * 0.05;
+
+    world.style.transform =
+      `rotateX(${ -parY * 2 }deg) rotateY(${ parX * 3 }deg)`;
+
+    for (const p of photos){
+      const rel = p.z + camZ + 600;              // 0 when photo is at focal plane
+      const dist = Math.abs(rel);
+      const blur = Math.min(14, Math.max(0, (dist - 350) / 130));
+      const op   = rel > 900 ? Math.max(0, 1 - (rel - 900) / 500)
+                             : Math.max(0, 1 - Math.max(0, dist - 300) / 2600);
+      p.el.style.transform =
+        `translate(-50%,-50%) translate3d(${p.x}px, ${p.y}px, ${p.z + camZ}px) rotateY(${p.ry}deg)`;
+      p.el.style.filter = blur > .4 ? `blur(${blur}px)` : 'none';
+      p.el.style.opacity = op.toFixed(3);
+      p.el.style.pointerEvents = op < .05 ? 'none' : 'auto';
+      p.el.style.zIndex = Math.round(10000 + rel * -0.01);
+    }
+
+    const idx = Math.min(photos.length, Math.max(1, Math.round(camZ / SPACING) + 1));
+    document.getElementById('curNum').textContent = String(idx).padStart(2,'0');
+    document.getElementById('progress').style.width =
+      Math.min(100, Math.max(0, camZ / (maxZ || 1) * 100)) + '%';
+
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- INPUT ---------- */
+  addEventListener('wheel', e => { camTarget += e.deltaY * 1.35; stopAuto(); }, {passive:true});
+  addEventListener('mousemove', e => {
+    mouseX = (e.clientX / innerWidth - .5);
+    mouseY = (e.clientY / innerHeight - .5);
+  });
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight'){ camTarget += SPACING; stopAuto(); }
+    if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft'){ camTarget -= SPACING; stopAuto(); }
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === ' '){ e.preventDefault(); toggleAuto(); }
+  });
+  // touch / drag
+  let dragY = null;
+  addEventListener('pointerdown', e => { dragY = e.clientY; });
+  addEventListener('pointermove', e => {
+    if (dragY === null) return;
+    camTarget += (dragY - e.clientY) * 4; dragY = e.clientY; stopAuto();
+  });
+  addEventListener('pointerup', () => dragY = null);
+
+  /* ---------- AUTOPLAY ---------- */
+  const playBtn = document.getElementById('hudPlay');
+  function toggleAuto(){ auto = !auto; playBtn.classList.toggle('on', auto);
+    playBtn.textContent = auto ? '❚❚ Pause' : '▶ Cinematic';
+    if (auto && camZ >= maxZ) camTarget = 0; }
+  function stopAuto(){ if (auto){ auto = false; playBtn.classList.remove('on'); playBtn.textContent = '▶ Cinematic'; } }
+  playBtn.addEventListener('click', e => { e.stopPropagation(); toggleAuto(); });
+
+  /* ---------- LIGHTBOX ---------- */
+  const lb = document.getElementById('lightbox');
+  function openLightbox(src, cap){
+    const img = document.getElementById('lbImg');
+    img.src = src; img.style.animation = 'none'; void img.offsetWidth;
+    img.style.animation = '';
+    document.getElementById('lbCap').textContent = cap;
+    lb.classList.add('open');
+  }
+  function closeLightbox(){ lb.classList.remove('open'); }
+  lb.addEventListener('click', closeLightbox);
+
+  /* ---------- DRAG & DROP ---------- */
+  let dragDepth = 0;
+  addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+  addEventListener('dragleave', e => { if (--dragDepth <= 0){ dragDepth = 0; document.body.classList.remove('dragging'); } });
+  addEventListener('dragover', e => e.preventDefault());
+  addEventListener('drop', e => {
+    e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    const urls = files.map(f => { const u = URL.createObjectURL(f); u.__name = f.name; return u; });
+    // preserve captions from filenames via a lookup
+    const caps = {}; files.forEach((f,i) => caps[urls[i]] = f.name);
+    window.__capLookup = caps;
+    buildScene(urls);
+    camTarget = 0; camZ = 0;
+  });
+  // override caption for object URLs
+  const origCaption = captionFrom;
+  captionFrom = src => {
+    if (window.__capLookup && window.__capLookup[src])
+      return origCaption(window.__capLookup[src]);
+    return origCaption(src);
+  };
+
+  /* ---------- TITLE / START ---------- */
+  document.getElementById('enterBtn').addEventListener('click', () => {
+    document.getElementById('title').classList.add('gone');
+    setTimeout(() => document.body.classList.add('lights-up'), 500);
+    camTarget = 0;
+  });
+
+  buildScene(list);
+  camZ = -300; camTarget = -300;   // slight pull-back so photo 1 eases in
+  setTimeout(()=>{ camTarget = 0; }, 300);
+  frame();
+})();
+</script>
+</body>
+</html>

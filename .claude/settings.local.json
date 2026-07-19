@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Rename-Item \"C:\\\\Users\\\\HP\\\\Desktop\\\\folder\\\\gallery.html\" \"index.html\")",
+      "PowerShell(git init)",
+      "PowerShell(git config user.name 2>$null)",
+      "PowerShell(git config user.email 2>$null)"
+    ]
+  }
+}
